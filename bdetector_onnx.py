@@ -3,12 +3,13 @@
 import argparse
 import colored
 from colored import stylize
-import config
 import numpy as np
 import onnx
 import onnxruntime
 from tqdm import tqdm
 import subprocess
+
+sample_rate = 32000
 
 
 def seconds_to_hms(seconds):
@@ -49,7 +50,7 @@ def print_timestamps(
     precision: int,
     threshold: int,
     focus_idx: int,
-    offset: int = 0,
+    offset: int,
 ):
     focus = framewise_output[:, focus_idx]
     # precision in the amount of milliseconds per timestamp sample (higher values will result in less precise timestamps)
@@ -58,7 +59,6 @@ def print_timestamps(
         subsampled_scores, -len(subsampled_scores))[-len(subsampled_scores):]
     sorted_confidence = top_indices[np.argsort(
         -subsampled_scores[top_indices])]
-
     print_results(subsampled_scores, precision, offset, sorted_confidence,
                   threshold)
 
@@ -80,7 +80,7 @@ def load_audio(file: str, sr: int):
 
     buffer = np.frombuffer(out, np.int16).flatten().astype(np.float32)
     buffer = buffer[:len(buffer) -
-                    len(buffer) % config.sample_rate]  # trim off residual
+                    len(buffer) % sample_rate]  # trim off residual
     return buffer / (2.0**15)
 
 
@@ -107,7 +107,7 @@ if __name__ == '__main__':
                         metavar='b',
                         nargs='?',
                         type=int,
-                        default=config.sample_rate * 15 * 60)
+                        default=sample_rate * 15 * 60)
     parser.add_argument('--threshold',
                         metavar='t',
                         nargs='?',
@@ -128,14 +128,20 @@ if __name__ == '__main__':
 
     model = onnx.load(args.model)
     onnx.checker.check_model(model)
-    print(onnxruntime.get_available_providers())
+
+    sess_options = onnxruntime.SessionOptions()
+    sess_options.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
+    sess_options.optimized_model_filepath = args.model
+
     ort_session = onnxruntime.InferenceSession(
-        args.model, providers=onnxruntime.get_available_providers())
+        args.model,
+        sess_options,
+        providers=onnxruntime.get_available_providers())
 
     for file in args.files:
         print(stylize('Inferencing', colored.attr('bold')),
               stylize(file, colored.fg('blue')))
-        audio = load_audio(file, sr=config.sample_rate)
+        audio = load_audio(file, sr=sample_rate)
         offset = 0
 
         total_chunks = len(audio) // args.batch_size + int(
@@ -152,6 +158,6 @@ if __name__ == '__main__':
             print_timestamps(framewise_output[0], args.precision,
                              args.threshold, args.focus_idx, offset)
 
-            offset += len(chunk) / config.sample_rate
+            offset += len(chunk[0]) / sample_rate
             del chunk
         del audio
