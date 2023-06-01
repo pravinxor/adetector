@@ -1,8 +1,8 @@
 import csv
 
 sample_rate = 32000
-
 labels_csv_path = './class_labels_indices.csv'
+model_path = './Cnn14_DecisionLevelAtt.pth'
 
 # Load label
 with open(labels_csv_path, 'r') as f:

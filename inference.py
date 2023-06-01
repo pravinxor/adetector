@@ -1,6 +1,6 @@
 import torch
 from model import Cnn14_DecisionLevelAtt
-from config import labels, classes_num
+from config import labels, classes_num, model_path
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'mps' if torch.
                       backends.mps.is_available() else 'cpu')
@@ -17,11 +17,9 @@ def move_data_to_device(x, device):
     return x.to(device)
 
 
-class SoundEventDetection(object):
+class EventDetector(object):
 
     def __init__(self):
-        checkpoint_path = './Cnn14_DecisionLevelAtt.pth'
-
         self.labels = labels
         self.classes_num = classes_num
 
@@ -34,16 +32,10 @@ class SoundEventDetection(object):
                                             classes_num=self.classes_num,
                                             interpolate_mode='nearest')
 
-        checkpoint = torch.load(checkpoint_path, map_location=device)
+        checkpoint = torch.load(model_path, map_location=device)
         self.model.load_state_dict(checkpoint['model'])
-
-        # Parallel
-        self.model.to(device)
-        if torch.cuda.is_available():
-            print('Using {} GPU(s)'.format(torch.cuda.device_count()))
-            self.model = torch.nn.DataParallel(self.model)
-        else:
-            print('Using CPU.')
+        self.model = self.model.to(device)
+        print('Using', device)
 
         # self.model = torch.compile(self.model) for python 3.10 or pytorch nightly
 

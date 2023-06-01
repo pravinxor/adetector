@@ -6,21 +6,6 @@ from torchlibrosa.stft import Spectrogram, LogmelFilterBank
 from torchlibrosa.augmentation import SpecAugmentation
 
 
-def init_layer(layer):
-    """Initialize a Linear or Convolutional layer. """
-    nn.init.xavier_uniform_(layer.weight)
-
-    if hasattr(layer, 'bias'):
-        if layer.bias is not None:
-            layer.bias.data.fill_(0.)
-
-
-def init_bn(bn):
-    """Initialize a Batchnorm layer. """
-    bn.bias.data.fill_(0.)
-    bn.weight.data.fill_(1.)
-
-
 def pad_framewise_output(framewise_output, frames_num):
     """Pad framewise_output to the same length as input frames.
     Args:
@@ -86,13 +71,6 @@ class ConvBlock(nn.Module):
                                bias=False)
         self.bn1 = nn.BatchNorm2d(out_channels)
         self.bn2 = nn.BatchNorm2d(out_channels)
-        self.init_weight()
-
-    def init_weight(self):
-        init_layer(self.conv1)
-        init_layer(self.conv2)
-        init_bn(self.bn1)
-        init_bn(self.bn2)
 
     def forward(self, input, pool_size=(2, 2), pool_type='avg'):
         x = input
@@ -132,12 +110,6 @@ class AttBlock(nn.Module):
                              bias=True)
 
         self.bn_att = nn.BatchNorm1d(n_out)
-        self.init_weights()
-
-    def init_weights(self):
-        init_layer(self.att)
-        init_layer(self.cla)
-        init_bn(self.bn_att)
 
     def forward(self, x):
         # x: (n_samples, n_in, n_time)
@@ -206,11 +178,6 @@ class Cnn14_DecisionLevelAtt(nn.Module):
         self.fc1 = nn.Linear(2048, 2048, bias=True)
         self.att_block = AttBlock(2048, classes_num, activation='sigmoid')
         self.interpolator = Interpolator(ratio=self.interpolate_ratio)
-        self.init_weight()
-
-    def init_weight(self):
-        init_bn(self.bn0)
-        init_layer(self.fc1)
 
     def forward(self, input):
         """

@@ -3,9 +3,9 @@
 import argparse
 import colored
 from colored import stylize
+import config
 import numpy as np
-import panns_inference
-from inference import SoundEventDetection
+from inference import EventDetector
 from tqdm import tqdm
 import subprocess
 
@@ -68,8 +68,8 @@ def chunker(seq: np.ndarray, size: int):
 
 def load_audio(file: str, sr: int):
     cmd = [
-        'ffmpeg', '-threads', '0', '-i', file, '-f', 's16le', '-ac', '1',
-        '-acodec', 'pcm_s16le', '-ar',
+        'ffmpeg', '-i', file, '-f', 's16le', '-ac', '1', '-acodec',
+        'pcm_s16le', '-ar',
         str(sr), '-'
     ]
     try:
@@ -77,12 +77,13 @@ def load_audio(file: str, sr: int):
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"Failed to load audio: {e.stderr.decode()}") from e
 
-    return np.frombuffer(out, np.int16).flatten().astype(np.float32) / (2.0**
-                                                                        15)
+    buffer = np.frombuffer(out, np.int16).flatten().astype(np.float32)
+    buffer = buffer[:len(buffer) -
+                    len(buffer) % config.sample_rate]  # trim off residual
+    return buffer / (2.0**15)
 
 
 if __name__ == '__main__':
-    sample_rate = 32000
     parser = argparse.ArgumentParser(
         prog='bdetector', description='Scans audio files for sounds')
     parser.add_argument('files',
@@ -105,7 +106,7 @@ if __name__ == '__main__':
                         metavar='b',
                         nargs='?',
                         type=int,
-                        default=sample_rate * 15 * 60)
+                        default=config.sample_rate * 15 * 60)
 
     parser.add_argument('--threshold',
                         metavar='t',
@@ -123,12 +124,12 @@ if __name__ == '__main__':
     #     checkpoint_path=
     #     '/home/pravin/Projects/bdetector/Cnn14_DecisionLevelMax.pth')
 
-    sed = SoundEventDetection()
+    sed = EventDetector()
 
     for file in args.files:
         print(stylize('Inferencing', colored.attr('bold')),
               stylize(file, colored.fg('blue')))
-        audio = load_audio(file, sr=sample_rate)
+        audio = load_audio(file, sr=config.sample_rate)
         offset = 0
 
         total_chunks = len(audio) // args.batch_size + int(
@@ -139,6 +140,6 @@ if __name__ == '__main__':
             framewise_output = sed.inference(chunk[None, :])
             print_timestamps(framewise_output[0], args.precision,
                              args.threshold, args.focus_idx, offset)
-            offset += len(chunk) / sample_rate
+            offset += len(chunk) / config.sample_rate
             del chunk
         del audio
