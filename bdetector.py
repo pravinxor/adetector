@@ -3,9 +3,9 @@
 import argparse
 import colored
 from colored import stylize
-import gc
 import numpy as np
 import panns_inference
+from inference import SoundEventDetection
 from tqdm import tqdm
 import subprocess
 
@@ -119,9 +119,11 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    sed = panns_inference.SoundEventDetection(
-        checkpoint_path=
-        '/home/pravin/Projects/bdetector/Cnn14_DecisionLevelMax.pth')
+    # sed = panns_inference.SoundEventDetection(
+    #     checkpoint_path=
+    #     '/home/pravin/Projects/bdetector/Cnn14_DecisionLevelMax.pth')
+
+    sed = SoundEventDetection()
 
     for file in args.files:
         print(stylize('Inferencing', colored.attr('bold')),
