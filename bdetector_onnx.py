@@ -140,16 +140,18 @@ if __name__ == '__main__':
 
         total_chunks = len(audio) // args.batch_size + int(
             len(audio) % args.batch_size > 0)
+
         for chunk in tqdm(chunker(audio, args.batch_size),
                           total=total_chunks,
                           leave=False):
             chunk = chunk.reshape(1, -1)
-            print(chunk.shape)
-            print(ort_session.get_inputs()[0].name)
+
             ort_inputs = {'input': chunk}
             framewise_output = ort_session.run(['output'], ort_inputs)[0]
+
             print_timestamps(framewise_output[0], args.precision,
                              args.threshold, args.focus_idx, offset)
+
             offset += len(chunk) / config.sample_rate
             del chunk
         del audio
